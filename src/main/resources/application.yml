@@ -1,0 +1,10 @@
+ratelimiter:
+  clients:
+    - id: "xyz"
+      limit: 500
+    - id: "abc"
+      limit: 200
+    - id: "free"
+      limit: 3
+    - id: "premiumUser"
+      limit: 2000
