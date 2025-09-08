@@ -1,45 +1,33 @@
-Distributed High-Throughput Rate Limiter API
-📖 Overview
+# 🔄 Rate Limiter Distribuído de Alta Performance
 
-This project implements a distributed, high-throughput rate limiter in Java 21 using Spring Boot.
-It was designed as a coding challenge but structured with a production-ready architecture for clarity, maintainability, and extensibility.
+## 📖 Visão Geral
+Este projeto implementa um **rate limiter distribuído** em **Java 21** com **Spring Boot**.  
+Foi desenvolvido inicialmente como um desafio técnico, mas segue uma estrutura pensada para produção, priorizando clareza, manutenção e possibilidade de evolução.
 
-The rate limiter:
+### Características principais
+- 🚀 Suporta mais de **100 milhões de requisições por minuto** em múltiplos servidores  
+- 📦 Usa **lotes locais com flush agendado**, reduzindo chamadas de rede  
+- 🛡️ Garante **segurança em concorrência** com `LongAdder` e `ConcurrentHashMap`  
+- ✅ Oferece **precisão aproximada**: cada cliente sempre tem pelo menos seu limite garantido, mas pode ultrapassá-lo levemente  
+- 🧩 Código dividido em camadas bem definidas, seguindo princípios de **Clean Architecture**  
 
-Supports 100M+ requests/minute across a fleet of servers.
+---
 
-Uses local batching with scheduled flushes to minimize network calls.
+## 🏗️ Estrutura do Projeto
+```
+domain/         → Regras de negócio (rate limiter, interface de KV store)
+application/    → Serviços que usam o rate limiter e aplicam configurações
+infrastructure/ → Implementações técnicas (in-memory e pronto para Redis)
+controller/     → Endpoints REST
+config/         → Configuração centralizada dos limites por cliente
+```
 
-Ensures thread safety with LongAdder and ConcurrentHashMap.
+---
 
-Provides approximate accuracy: clients always get at least their configured limit, but may exceed it slightly.
+## ⚙️ Configuração de Clientes e Limites
+Os limites estão definidos em `src/main/resources/application.yml`:
 
-Cleanly separates domain logic, application services, infrastructure, and API Controller.
-
-🏗️ Architecture
-domain/         → Business logic (rate limiter, KV store interface)
-application/    → Service layer (uses rate limiter, applies configs)
-infrastructure/ → Technical details (InMemory, Redis-ready placeholder)
-controller/   → REST API controllers
-config/         → Centralized client limit configuration
-
-
-This structure follows Clean Architecture / Hexagonal principles:
-
-Domain: pure Java, no framework dependencies.
-
-Application: orchestrates use cases.
-
-Infrastructure: provides implementations (in-memory by default).
-
-Controller: REST API endpoints.
-
-Config: loads client limits from YAML.
-
-⚙️ Configuring Clients and Limits
-
-Client IDs and rate limits are configured in src/main/resources/application.yml:
-
+```yaml
 ratelimiter:
   clients:
     - id: "xyz"
@@ -48,67 +36,47 @@ ratelimiter:
       limit: 200
     - id: "premiumUser"
       limit: 2000
+```
 
+- Os limites são de **requisições por 60 segundos**  
+- Clientes desconhecidos são **rejeitados**  
+- Pode ser estendido futuramente para carregar de um **banco de dados** ou **serviço de configuração**  
 
-Limits are requests per 60 seconds.
+---
 
-Unknown clients are rejected by default.
+## 🚀 Como Executar
 
-This can later be extended to load from a database or a config service.
-
-🚀 Running the Project
-Option 1: Single Docker Command
-
-Build and run in one line:
-
-docker build -t ratelimiter-api . && docker run -p 8080:8080 ratelimiter-api
-
-Option 2: Docker Compose
-
-With the provided docker-compose.yml:
-
+### 🔹 Opção 1: Docker direto
+```bash
 docker compose up --build
+```
 
+### 🔹 Opção 2: Docker Compose
+```bash
+docker build -t ratelimiter-api . && docker run -p 8080:8080 ratelimiter-api
+```
 
-Both methods expose the API at:
+A API ficará disponível em:  
+👉 [http://localhost:8080/ratelimit?clientId=xyz](http://localhost:8080/ratelimit?clientId=xyz)
 
-http://localhost:8080/ratelimit?clientId=xyz
+---
 
-🌐 API Usage
+## 🌐 Uso da API
 
-Example request:
-
+### Exemplo de requisição:
+```bash
 curl "http://localhost:8080/ratelimit?clientId=xyz"
+```
 
-
-Example response:
-
+### Exemplo de resposta:
+```
 Client xyz allowed? true
+```
 
-✅ Testing
+---
 
-Run the full test suite:
-
+## ✅ Testes
+Rodar a suíte completa:  
+```bash
 mvn test
-
-Coverage
-
-Domain tests: batching, flush behavior, backend failures.
-
-Application tests: client configs, unknown client handling.
-
-Controller tests: REST API endpoints (MockMvc).
-
-Concurrency stress tests: 10,000+ requests with multiple threads.
-
-🔮 Future Enhancements
-
-Add RedisDistributedKeyValueStore for real distributed production.
-
-Expose metrics (Prometheus, Micrometer).
-
-Support sliding window and token bucket algorithms.
-
-Add management endpoints for updating limits dynamically.
-
-💡 This project demonstrates a scalable, fault-tolerant, and maintainable rate limiter suitable for distributed systems, while remaining easy to run locally with a single Docker command or Docker Compose.
+```
