@@ -4,13 +4,6 @@
 Este projeto implementa um **rate limiter distribuído** em **Java 21** com **Spring Boot**.  
 Foi desenvolvido inicialmente como um desafio técnico, mas segue uma estrutura pensada para produção, priorizando clareza, manutenção e possibilidade de evolução.
 
-### Características principais
-- 🚀 Suporta mais de **100 milhões de requisições por minuto** em múltiplos servidores  
-- 📦 Usa **lotes locais com flush agendado**, reduzindo chamadas de rede  
-- 🛡️ Garante **segurança em concorrência** com `LongAdder` e `ConcurrentHashMap`  
-- ✅ Oferece **precisão aproximada**: cada cliente sempre tem pelo menos seu limite garantido, mas pode ultrapassá-lo levemente  
-- 🧩 Código dividido em camadas bem definidas, seguindo princípios de **Clean Architecture**  
-
 ---
 
 ## 🏗️ Estrutura do Projeto
