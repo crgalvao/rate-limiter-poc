@@ -12,3 +12,9 @@ ratelimiter:
     window-seconds: 60
     flush-interval-ms: 100
     shard-count: 10
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

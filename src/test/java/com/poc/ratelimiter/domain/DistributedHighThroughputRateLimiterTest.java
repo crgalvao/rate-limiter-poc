@@ -43,9 +43,6 @@ class DistributedHighThroughputRateLimiterTest {
         assertFalse(limiter.isAllowed(client, limit).get(), "The request exceeding the limit should be blocked.");
     }
 
-    
-
-    
     static class InMemoryTestStore implements DistributedKeyValueStore {
         private final ConcurrentHashMap<String, AtomicInteger> storage = new ConcurrentHashMap<>();
 

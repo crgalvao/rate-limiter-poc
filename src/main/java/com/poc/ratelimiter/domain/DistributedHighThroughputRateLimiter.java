@@ -36,6 +36,7 @@ public class DistributedHighThroughputRateLimiter {
     public CompletableFuture<Boolean> isAllowed(String key, int limit) {
         final LongAdder localCounter = localCounters.computeIfAbsent(key, k -> new LongAdder());
         localCounter.increment();
+        long currentLocalCount = localCounter.sum();
 
         List<CompletableFuture<Integer>> shardFutures = new ArrayList<>();
         for (int i = 0; i < shardCount; i++) {
@@ -48,13 +49,14 @@ public class DistributedHighThroughputRateLimiter {
                     int totalCount = shardFutures.stream()
                             .mapToInt(CompletableFuture::join)
                             .sum();
-                    return totalCount + localCounter.sum() <= limit;
+                    return totalCount + currentLocalCount <= limit;
                 })
                 .exceptionally(ex -> {
                     logger.error("Error checking rate limit for key {}: {}", key, ex.getMessage());
                     return true;
                 });
     }
+
 
     private void startBackgroundFlush() {
         scheduler.scheduleAtFixedRate(this::flushLocalCounters,
