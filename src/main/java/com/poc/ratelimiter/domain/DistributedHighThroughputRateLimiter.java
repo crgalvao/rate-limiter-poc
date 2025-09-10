@@ -1,5 +1,8 @@
 package com.poc.ratelimiter.domain;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -8,17 +11,25 @@ import java.util.concurrent.atomic.LongAdder;
 
 public class DistributedHighThroughputRateLimiter {
 
-    private static final int WINDOW_SECONDS = 60;
-    private static final int FLUSH_INTERVAL_MS = 100;
-    private static final int SHARD_COUNT = 10; 
+    private static final Logger logger = LoggerFactory.getLogger(DistributedHighThroughputRateLimiter.class);
 
+    private final int windowSeconds;
+    private final int flushIntervalMs;
+    private final int shardCount;
     private final DistributedKeyValueStore store;
     private final Map<String, LongAdder> localCounters = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
     public DistributedHighThroughputRateLimiter(DistributedKeyValueStore store) {
+        this(store, 60, 100, 10);
+    }
+
+    public DistributedHighThroughputRateLimiter(DistributedKeyValueStore store, int windowSeconds, int flushIntervalMs, int shardCount) {
         this.store = store;
+        this.windowSeconds = windowSeconds;
+        this.flushIntervalMs = flushIntervalMs;
+        this.shardCount = shardCount;
         startBackgroundFlush();
     }
 
@@ -26,31 +37,28 @@ public class DistributedHighThroughputRateLimiter {
         final LongAdder localCounter = localCounters.computeIfAbsent(key, k -> new LongAdder());
         localCounter.increment();
 
-        
         List<CompletableFuture<Integer>> shardFutures = new ArrayList<>();
-        for (int i = 0; i < SHARD_COUNT; i++) {
+        for (int i = 0; i < shardCount; i++) {
             String shardKey = getShardKey(key, i);
-            shardFutures.add(store.incrementByAndExpire(shardKey, 0, WINDOW_SECONDS));
+            shardFutures.add(store.incrementByAndExpire(shardKey, 0, windowSeconds));
         }
 
-        
         return CompletableFuture.allOf(shardFutures.toArray(new CompletableFuture[0]))
                 .thenApply(v -> {
                     int totalCount = shardFutures.stream()
                             .mapToInt(CompletableFuture::join)
                             .sum();
-                    
                     return totalCount + localCounter.sum() <= limit;
                 })
                 .exceptionally(ex -> {
-                    System.err.println("Erro ao verificar limite para " + key + ": " + ex);
-                    return true; 
+                    logger.error("Error checking rate limit for key {}: {}", key, ex.getMessage());
+                    return true;
                 });
     }
 
     private void startBackgroundFlush() {
         scheduler.scheduleAtFixedRate(this::flushLocalCounters,
-                FLUSH_INTERVAL_MS, FLUSH_INTERVAL_MS, TimeUnit.MILLISECONDS);
+                flushIntervalMs, flushIntervalMs, TimeUnit.MILLISECONDS);
     }
 
     private void flushLocalCounters() {
@@ -60,14 +68,12 @@ public class DistributedHighThroughputRateLimiter {
             long delta = adder.sumThenReset();
 
             if (delta > 0) {
-                
-                int shardId = random.nextInt(SHARD_COUNT);
+                int shardId = random.nextInt(shardCount);
                 String shardKey = getShardKey(key, shardId);
 
-                store.incrementByAndExpire(shardKey, (int) delta, WINDOW_SECONDS)
+                store.incrementByAndExpire(shardKey, (int) delta, windowSeconds)
                         .exceptionally(ex -> {
-                            System.err.println("Falha no flush para " + shardKey + ": " + ex);
-                            
+                            logger.error("Failed to flush for shardKey {}: {}", shardKey, ex.getMessage());
                             adder.add(delta);
                             return null;
                         });
@@ -80,12 +86,10 @@ public class DistributedHighThroughputRateLimiter {
     }
 
     public void shutdown() {
-        
         flushLocalCounters();
         scheduler.shutdown();
         try {
-            
-            if (!scheduler.awaitTermination(FLUSH_INTERVAL_MS * 2L, TimeUnit.MILLISECONDS)) {
+            if (!scheduler.awaitTermination(flushIntervalMs * 2L, TimeUnit.MILLISECONDS)) {
                 scheduler.shutdownNow();
             }
         } catch (InterruptedException e) {

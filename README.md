@@ -29,11 +29,15 @@ ratelimiter:
       limit: 200
     - id: "premiumUser"
       limit: 2000
+  performance:
+    window-seconds: 60
+    flush-interval-ms: 100
+    shard-count: 10
 ```
 
-- Os limites são de **requisições por 60 segundos**  
-- Clientes desconhecidos são **rejeitados**  
-- Pode ser estendido futuramente para carregar de um **banco de dados** ou **serviço de configuração**  
+- clients: Define o limite de requisições por 60 segundos para cada id de cliente.
+- performance: Permite ajustar os parâmetros internos do algoritmo para otimizar a performance.
+- clientes não identificados ou sem o cabeçalho X-Client-ID são rejeitados.
 
 ---
 
@@ -46,26 +50,39 @@ docker compose up --build
 
 ### 🔹 Opção 2: Docker Compose
 ```bash
-docker build -t ratelimiter-api . && docker run -p 8080:8080 ratelimiter-api
+docker build -t ratelimiter-api .
+docker run -p 8080:8080 ratelimiter-api
 ```
-
-A API ficará disponível em:  
-👉 [http://localhost:8080/ratelimit?clientId=xyz](http://localhost:8080/ratelimit?clientId=xyz)
-
----
 
 ## 🌐 Uso da API
 
 ### Exemplo de requisição:
 ```bash
-curl "http://localhost:8080/ratelimit?clientId=xyz"
+curl -v -H "X-Client-ID: xyz" http://localhost:8080/api/products
 ```
 
 ### Exemplo de resposta:
 ```
-Client xyz allowed? true
+HTTP/1.1 200 OK
+Content-Type: text/plain;charset=UTF-8
+
+Returning list of products for client: xyz
+
 ```
 
+### Resposta de limite excedido (429 Too Many Requests):
+```
+Após exceder o limite configurado, a mesma requisição receberá:
+
+HTTP/1.1 429 Too Many Requests
+
+### Resposta para cabeçalho ausente (400 Bad Request):
+```
+Bash
+curl -v http://localhost:8080/api/products
+HTTP/1.1 400 Bad Request
+
+```
 ---
 
 ## ✅ Testes
