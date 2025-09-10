@@ -25,13 +25,13 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        boolean allowed = rateLimiterService.isRequestAllowed(clientId).get(); // .get() for simplicity in this sync interceptor
+        boolean allowed = rateLimiterService.isRequestAllowed(clientId).get();
 
         if (allowed) {
-            return true; // Proceed to the controller
+            return true;
         } else {
             response.sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "You have exceeded your request limit.");
-            return false; // Block the request
+            return false;
         }
     }
 }
